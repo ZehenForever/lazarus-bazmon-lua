@@ -37,4 +37,4 @@ The basic flow is:
 1. The front end will poll that file until a configurable timeout (currently 5 seconds), and once there are matching results in the CSV, it will paint those in game in the UI as a table of search results.
 
 ### Set up the backend
-Setting up and using the the backend Go program can be found in [its repository](https://www.lazaruseq.com/Magelo/index.php?page=bazaar).
+Setting up and using the the backend Go program can be found in [its repository](https://github.com/ZehenForever/lazarus-bazmon-server).
