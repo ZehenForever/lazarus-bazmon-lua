@@ -7,9 +7,13 @@ local mq = require('mq')
 local Write = require('lib/Write')
 local ini = require('lib/inifile')
 local util = require('lib/util')
+local ftcsv = require('lib/ftcsv')
 
 -- Time in ms to wait for things like windows opening
 local WaitTime = 750
+
+-- Time in seconds to wait for the bazaar to respond
+local bazaar_wait = 5
 
 -- Default Write output to 'info' messages
 -- Override via /collect debug
@@ -42,6 +46,29 @@ local parse_item = function(item)
     local value, compare = string.match(settings['Query'][item], '(%d+)(.*)')
     local comparator = string.match(compare, '([<>=]+)')
     return value, comparator
+end
+
+-- Searches the CSV results file for a queryID
+-- Waits for a configured number of seconds for the results to be written to the file
+local search_results = function(queryID)
+    Write.Debug('Reading CSV file: %s', results_file)
+
+    -- loop until time is up, waiting for the results to be written to the file
+    local found_item = false
+    for i=1,bazaar_wait do
+        mq.delay(1000)
+        Write.Debug('Reading CSV file: %s', results_file)
+        for index, result in ftcsv.parseLine(results_file, ",") do
+            if result.QueryID == queryID then
+                found_item = true
+                Write.Debug('Result[%d]: %s "%s" %s %s', index, result.QueryID, result.Item, result.Price, result.Seller)
+            end
+        end
+        if found_item then
+            break
+        end
+    end
+    
 end
 
 local bazmonitor = function(...)
@@ -97,8 +124,17 @@ local bazmonitor = function(...)
     if args[1] == 'search' then
         if args[2] then
             Write.Debug('Searching for %s', args[2])
-            settings['Queries'][util.random_string(16)] = string.format("/name|%s", args[2])
+            local query_id = util.random_string(16)
+            settings['Queries'][query_id] = string.format("/name|%s", args[2])
             save_settings(settings)
+            search_results(query_id)
+        end
+    end
+
+    if args[1] == 'csv' then
+        Write.Debug('Reading CSV file: %s', results_file)
+        for index, result in ftcsv.parseLine(results_file, ",") do
+            Write.Debug('Result[%d]: %s "%s" %s %s', index, result.QueryID, result.Item, result.Price, result.Seller)
         end
     end
 
