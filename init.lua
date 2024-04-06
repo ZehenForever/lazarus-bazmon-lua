@@ -2,7 +2,7 @@
 
 BazMonitor - Maintains an ini file that is used to monitor current bazaar values
 
---]]
+]]
 local mq = require('mq')
 local Write = require('lib/Write')
 local ini = require('lib/inifile')
