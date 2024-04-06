@@ -131,12 +131,41 @@ local races = {
     ["Troll"] = 256,
     ["Vah Shir"] = 8192,
     ["Wood Elf"] = 8,
+}
 
+local slots = {
+    ["Any"] = -1,
+    ["Ammo"] = 2097152,
+    ["Waist"] = 1048576,
+    ["Feet"] = 524288,
+    ["Legs"] = 262144,
+    ["Chest"] = 131072,
+    ["Fingers"] = 98304,
+    ["Finger1"] = 65536,
+    ["Finger2"] = 32768,
+    ["Secondary"] = 16384,
+    ["Primary"] = 8192,
+    ["Hands"] = 4096,
+    ["Range"] = 2048,
+    ["Wrists"] = 1536,
+    ["Wrist1"] = 1024,
+    ["Wrist2"] = 512,
+    ["Back"] = 256,
+    ["Arms"] = 128,
+    ["Shoulders"] = 64,
+    ["Neck"] = 32,
+    ["Ears"] = 18,
+    ["Ear1"] = 16,
+    ["Face"] = 8,
+    ["Head"] = 4,
+    ["Ear2"] = 2,
+    ["Charm"] = 1,
 }
 
 local filters = {
     ["Class"] = classes,
     ["Race"] = races,
+    ["Slot"] = slots,
 }
 
 local current_class = 0
@@ -230,9 +259,10 @@ local render_ui = function(open)
     -- Item name search input box
     search_item_name, _ = imgui.InputText("Item Name", search_item_name, ImGuiInputTextFlags.EnterReturnsTrue)
 
-    -- Class dropdown
+    -- Dropdown filters
     render_search_dropdown("Class")
     render_search_dropdown("Race")
+    render_search_dropdown("Slot")
 
     -- Search button
     if ImGui.Button("Search") then
