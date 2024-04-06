@@ -92,6 +92,122 @@ end
 
 local search_item_name = ""
 
+-- The list of classes that can are valid search filters
+local classes = {
+    ["Any"] = -1,
+    ["Bard"] = 128,
+    ["Beastlord"] = 16384,
+    ["Berserker"] = 32768,
+    ["Cleric"] = 2,
+    ["Druid"] = 32,
+    ["Enchanter"] = 8192,
+    ["Magician"] = 4096,
+    ["Monk"] = 64,
+    ["Necromancer"] = 1024,
+    ["Paladin"] = 4,
+    ["Ranger"] = 8,
+    ["Rogue"] = 256,
+    ["Shadowknight"] = 16,
+    ["Shaman"] = 512,
+    ["Warrior"] = 1,
+    ["Wizard"] = 2048,
+}
+
+local races = {
+    ["Any"] = -1,
+    ["Barbarian"] = 2,
+    ["Dark Elf"] = 32,
+    ["Drakkin"] = 32768,
+    ["Dwarf"] = 128,
+    ["Erudite"] = 4,
+    ["Froglok"] = 16384,
+    ["Gnome"] = 2048,
+    ["Half Elf"] = 64,
+    ["Halfling"] = 1024,
+    ["High Elf"] = 16,
+    ["Human"] = 1,
+    ["Iksar"] = 4096,
+    ["Ogre"] = 512,
+    ["Troll"] = 256,
+    ["Vah Shir"] = 8192,
+    ["Wood Elf"] = 8,
+
+}
+
+local filters = {
+    ["Class"] = classes,
+    ["Race"] = races,
+}
+
+local current_class = 0
+local search_filter = {
+    ["Class"] = "Magician",
+}
+
+local current_search_filter = function(filter)
+    local indexes = {}
+    for i, val in ipairs(search_filter) do
+        indexes[val] = i
+    end
+    if indexes[filter] then
+        return indexes[filter]
+    end
+    return 0
+end
+
+-- Add a search filter
+local search_filter_add = function(filter, value)
+    Write.Debug('Adding filter: %s = %s', filter, value)
+    filter = util.upper_first(filter)
+    value = util.upper_first(value)
+    search_filter[filter] = value
+end
+
+
+-- If this search filter has been set, it returns the index of the value from its list of valid values
+local search_filter_index = function(filter)
+    filter = util.upper_first(filter)
+    local value = search_filter[filter]
+    if value == nil then
+        return 0
+    end
+    if filters[filter] then
+        for i, val in ipairs(filters[filter]) do
+            if val == value then
+                return i
+            end
+        end
+    else
+        Write.Debug('No filter for %s', filter)
+        return 0
+    end
+    return 1234
+end
+
+local render_search_dropdown = function(label --[[string]])
+    label = util.upper_first(label)
+    imgui.Text(label)
+    imgui.SameLine(100)
+    imgui.PushItemWidth(150)
+    local valid_values = {}
+    for k,v in pairs(filters[label]) do
+        valid_values[#valid_values+1] = k
+    end
+    local current_val = current_search_filter(label)
+    if imgui.BeginCombo("##"..label, search_filter[label], 0) then
+        for n = 1, #valid_values do
+            local is_selected = current_val == n
+            if imgui.Selectable(valid_values[n], is_selected) then
+                search_filter_add(label, valid_values[n])
+            end
+            if is_selected then
+                imgui.SetItemDefaultFocus()
+            end
+        end
+        imgui.EndCombo()
+    end
+end
+
 local render_ui = function(open)
     local main_viewport = imgui.GetMainViewport()
     imgui.SetNextWindowPos(main_viewport.WorkPos.x + 650, main_viewport.WorkPos.y + 20, ImGuiCond.FirstUseEver)
@@ -113,6 +229,10 @@ local render_ui = function(open)
 
     -- Item name search input box
     search_item_name, _ = imgui.InputText("Item Name", search_item_name, ImGuiInputTextFlags.EnterReturnsTrue)
+
+    -- Class dropdown
+    render_search_dropdown("Class")
+    render_search_dropdown("Race")
 
     -- Search button
     if ImGui.Button("Search") then
@@ -228,6 +348,55 @@ local bazmonitor = function(...)
                 Write.Info('Value: %s, Compare: %s', value, compare)
             end
         end
+    end
+
+    -- Manually add a search filter
+    -- /bazmon filter set <key> <val>
+    if args[1] == 'filter' and args[2] == 'set' and args[3] ~= nil and args[4] ~= nil then
+        search_filter_add(args[3], args[4])
+    end
+
+    -- Get a specific search filter value
+    -- /bazmon filter get <key>
+    if args[1] == 'filter' and args[2] == 'get' and args[3] ~= nil then
+        Write.Debug('Filter for %s = %s', args[3], search_filter[args[3]])
+    end
+
+    -- Get a specific search filter value's index from its array of valid values
+    -- /bazmon filter index <key>
+    if args[1] == 'filter' and args[2] == 'index' and args[3] ~= nil then
+        Write.Debug('Filter for %s', args[3])
+        Write.Debug('Filter for %s = %s', args[3], search_filter_index(args[3]))
+    end
+
+    -- List the search filters
+    -- /bazmon filter list
+    if args[1] == 'filter' and args[2] == 'list' then
+        Write.Debug('Listing filters')
+        for key, val in pairs(search_filter) do
+            Write.Debug('Filter: %s = %s', key, val)
+        end
+    end
+
+    -- List valid values for a search filter
+    -- /bazmon filter values <key>
+    if args[1] == 'filter' and args[2] == 'values' and args[3] ~= nil then
+        local filter = util.upper_first(args[3])
+        if filters[filter] == nil then
+            Write.Debug('No filter for %s', filter)
+            return
+        end
+        Write.Debug('Listing values for %s', args[3])
+        for key, val in pairs(filters[filter]) do
+            Write.Debug('Value: %s = %s', key, val)
+        end
+    end
+
+    -- Clear the search filters
+    -- /bazmon filter clear
+    if args[1] == 'filter' and args[2] == 'clear' then
+        Write.Debug('Clearing filters')
+        search_filter = {}
     end
 
     -- Search the bazaar for an item

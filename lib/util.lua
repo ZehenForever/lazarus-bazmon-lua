@@ -62,4 +62,8 @@ util.random_string = function(length)
     return string
 end
 
+util.upper_first = function (str)
+    return (str:lower():gsub("^%l", string.upper))
+end
+
 return util
