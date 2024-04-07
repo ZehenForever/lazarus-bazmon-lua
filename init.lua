@@ -162,16 +162,84 @@ local slots = {
     ["Charm"] = 1,
 }
 
+local stats = {
+    ["Any"] = "-1",
+    ["Accuracy"] = "accuracy",
+    ["Agility"] = "aagi",
+    ["Armor Class"] = "ac",
+    ["Attack"] = "attack",
+    ["Avoidance"] = "avoidance",
+    ["Backstab"] = "backstabdmg",
+    ["Charisma"] = "acha",
+    ["Clairvyoance"] = "clairvoyance",
+    ["Cold"] = "cr",
+    ["Combat Effects"] = "combateffects",
+    ["Corruption"] = "svcorruption",
+    ["Damage"] = "damage",
+    ["Damage Shield"] = "damageshield",
+    ["Delay"] = "delay",
+    ["Dexterity"] = "adex",
+    ["Disease"] = "dr",
+    ["DoT Shielding"] = "dotshielding",
+    ["Endurance"] = "endur",
+    ["Endurance Regen"] = "enduranceregen",
+    ["Fire"] = "fr",
+    ["Haste"] = "haste",
+    ["Heal Amount"] = "healamt",
+    ["Health"] = "hp",
+    ["Regen"] = "regen",
+    ["Heroic Agility"] = "heroic_agi",
+    ["Heroic Charisma"] = "heroic_cha",
+    ["Heroic Cold"] = "heroic_cr",
+    ["Heroic Dexterity"] = "heroic_dex",
+    ["Heroic Disease"] = "heroic_dr",
+    ["Heroic Fire"] = "heroic_fr",
+    ["Heroic Magic"] = "heroic_mr",
+    ["Heroic Intelligence"] = "heroic_int",
+    ["Heroic Poison"] = "heroic_pr",
+    ["Heroic Stamina"] = "heroic_sta",
+    ["Heroic Strength"] = "heroic_str",
+    ["Heroic Corruption"] = "heroic_svcorrup",
+    ["Heroic Wisdom"] = "heroic_wis",
+    ["Intelligence"] = "aint",
+    ["Magic"] = "mr",
+    ["Mana"] = "mana",
+    ["Mana Regen"] = "manaregen",
+    ["Poison"] = "pr",
+    ["Shielding"] = "shielding",
+    ["Spell Damage"] = "spelldmg",
+    ["Spell Shielding"] = "spellshield",
+    ["Strikethrough"] = "strikethrough",
+    ["Stun Resist"] = "stunresist",
+    ["Stamina"] = "asta",
+    ["Strength"] = "astr",
+    ["Wisdom"] = "awis",
+}
+
 local filters = {
     ["Class"] = classes,
     ["Race"] = races,
     ["Slot"] = slots,
+    ["Stat"] = stats,
 }
 
 local current_class = 0
 local search_filter = {
     ["Class"] = "Magician",
 }
+
+-- Builds out the query to be written to the INI file
+local build_query = function()
+    local query = ""
+    if search_item_name ~= "" then
+        query = string.format("/Name|%s", search_item_name)
+    end
+    for key, val in pairs(search_filter) do
+        local value = filters[key][val]
+        query = query .. string.format("/%s|%s", key, value)
+    end
+    return query
+end
 
 local current_search_filter = function(filter)
     local indexes = {}
@@ -187,8 +255,8 @@ end
 -- Add a search filter
 local search_filter_add = function(filter, value)
     Write.Debug('Adding filter: %s = %s', filter, value)
-    filter = util.upper_first(filter)
-    value = util.upper_first(value)
+    --filter = util.upper_first(filter)
+    --value = util.upper_first(value)
     search_filter[filter] = value
 end
 
@@ -218,21 +286,26 @@ local render_search_dropdown = function(label --[[string]])
     imgui.Text(label)
     imgui.SameLine(100)
     imgui.PushItemWidth(150)
-    local valid_values = {}
-    for k,v in pairs(filters[label]) do
-        valid_values[#valid_values+1] = k
-    end
     local current_val = current_search_filter(label)
     if imgui.BeginCombo("##"..label, search_filter[label], 0) then
-        for n = 1, #valid_values do
-            local is_selected = current_val == n
-            if imgui.Selectable(valid_values[n], is_selected) then
-                search_filter_add(label, valid_values[n])
+
+        -- Iterate through the list of valid values for this label
+        for k, v in util.spairs(filters[label]) do
+
+            -- Select the value that matches our current search filter
+            local is_selected = search_filter[label] == k
+
+            -- If the user selects a new value, update the search filter
+            if imgui.Selectable(k, is_selected) then
+                search_filter_add(label, k)
             end
+
+            -- Make sure this is the selected/visible item in the dropdown
             if is_selected then
                 imgui.SetItemDefaultFocus()
             end
         end
+
         imgui.EndCombo()
     end
 end
@@ -263,6 +336,7 @@ local render_ui = function(open)
     render_search_dropdown("Class")
     render_search_dropdown("Race")
     render_search_dropdown("Slot")
+    render_search_dropdown("Stat")
 
     -- Search button
     if ImGui.Button("Search") then
@@ -275,7 +349,7 @@ local render_ui = function(open)
 
         -- Clear the queries, keep it a single query for now
         settings['Queries'] = {} 
-        settings['Queries'][query_id] = string.format("/name|%s", search_item_name)
+        settings['Queries'][query_id] = build_query()
 
         -- Set the current query ID to the one we just created
         current_query_id = query_id
