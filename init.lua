@@ -90,11 +90,9 @@ local load_search_results = function(queryID)
     currently_searching = false
 end
 
-local search_item_name = ""
-
 -- The list of classes that can are valid search filters
 local classes = {
-    ["Any"] = -1,
+    ["*Any*"] = -1,
     ["Bard"] = 128,
     ["Beastlord"] = 16384,
     ["Berserker"] = 32768,
@@ -114,7 +112,7 @@ local classes = {
 }
 
 local races = {
-    ["Any"] = -1,
+    ["*Any*"] = -1,
     ["Barbarian"] = 2,
     ["Dark Elf"] = 32,
     ["Drakkin"] = 32768,
@@ -134,7 +132,7 @@ local races = {
 }
 
 local slots = {
-    ["Any"] = -1,
+    ["*Any*"] = -1,
     ["Ammo"] = 2097152,
     ["Waist"] = 1048576,
     ["Feet"] = 524288,
@@ -163,7 +161,7 @@ local slots = {
 }
 
 local stats = {
-    ["Any"] = "-1",
+    ["*Any*"] = "-1",
     ["Accuracy"] = "accuracy",
     ["Agility"] = "aagi",
     ["Armor Class"] = "ac",
@@ -216,25 +214,115 @@ local stats = {
     ["Wisdom"] = "awis",
 }
 
+local aug_types = {
+    ["*Any*"] = "2147483647",
+    ["1"] = "1",
+    ["2"] = "2",
+    ["3"] = "4",
+    ["4"] = "8",
+    ["5"] = "16",
+    ["6"] = "32",
+    ["7"] = "64",
+    ["8"] = "128",
+    ["9"] = "256",
+    ["10"] = "512",
+    ["11"] = "1024",
+    ["12"] = "2048",
+    ["13"] = "4096",
+    ["14"] = "8192",
+    ["15"] = "16384",
+    ["16"] = "32768",
+    ["17"] = "65536",
+    ["18"] = "131072",
+    ["19"] = "262144",
+    ["20"] = "524288",
+    ["21"] = "1048576",
+    ["22"] = "2097152",
+    ["23"] = "4194304",
+    ["24"] = "8388608",
+    ["25"] = "16777216",
+    ["26"] = "33554432",
+    ["27"] = "67108864",
+    ["28"] = "134217728",
+    ["29"] = "268435456",
+    ["30"] = "536870912",
+}
+
+local item_types = {
+    ["*Any*"] = "-1",
+    ["1H Blunt"] = "3",
+    ["1H Piercing"] = "2",
+    ["1H Slashing"] = "0",
+    ["2H Blunt"] = "4",
+    ["2H Piercing"] = "35",
+    ["2H Slashing"] = "1",
+    ["Alcohol"] = "38",
+    ["Archery"] = "5",
+    ["Armor"] = "10",
+    ["Arrow"] = "27",
+    ["Augmentation"] = "54",
+    ["Bandages"] = "18",
+    ["Brass Instrument"] = "25",
+    ["Charm"] = "52",
+    ["Combinable"] = "17",
+    ["Compass"] = "40",
+    ["Drink"] = "15",
+    ["Fishing Bait"] = "37",
+    ["Fishing Pole"] = "36",
+    ["Food"] = "14",
+    ["Gems"] = "11",
+    ["Jewelry"] = "29",
+    ["Key"] = "33",
+    ["Key (bis)"] = "39",
+    ["Light"] = "16",
+    ["Lockpicks"] = "12",
+    ["Martial"] = "45",
+    ["Note"] = "32",
+    ["Percussion Instrument"] = "26",
+    ["Poison"] = "42",
+    ["Potion"] = "21",
+    ["Scroll"] = "20",
+    ["Shield"] = "8",
+    ["Stringed Instrument"] = "24",
+    ["Throwing"] = "19",
+    ["Throwing ranged items"] = "7",
+    ["Tome"] = "31",
+    ["Wind Instrument"] = "23",
+}
+
+-- The master list of all selected search filters
+-- These will be used to build the query to be written to the INI file
+local search_filter = {}
+
+-- Textbox search filters
+local search_item_name = ""
+local search_min_price = 0
+local search_max_price = 0
+
+-- Dropdown search filters
 local filters = {
     ["Class"] = classes,
     ["Race"] = races,
     ["Slot"] = slots,
     ["Stat"] = stats,
-}
-
-local current_class = 0
-local search_filter = {
-    ["Class"] = "Magician",
+    ["Aug"] = aug_types,
+    ["Type"] = item_types,
 }
 
 -- Builds out the query to be written to the INI file
 local build_query = function()
     local query = ""
     if search_item_name ~= "" then
-        query = string.format("/Name|%s", search_item_name)
+        query = query .. string.format("/Name|%s", search_item_name)
+    end
+    if search_min_price > 0 then
+        query = query .. string.format("/PriceMin|%d", search_min_price)
+    end
+    if search_max_price > 0 then
+        query = query .. string.format("/PriceMax|%d", search_max_price)
     end
     for key, val in pairs(search_filter) do
+        Write.Debug("Writing filter: %s = %s", key, val)
         local value = filters[key][val]
         query = query .. string.format("/%s|%s", key, value)
     end
@@ -281,16 +369,19 @@ local search_filter_index = function(filter)
     return 1234
 end
 
-local render_search_dropdown = function(label --[[string]])
+local render_search_dropdown = function(label --[[string]], line_offset --[[int]], order --[[function]])
+    if line_offset == nil then
+        line_offset = 0
+    end
     label = util.upper_first(label)
     imgui.Text(label)
-    imgui.SameLine(100)
+    imgui.SameLine(line_offset + 100)
     imgui.PushItemWidth(150)
     local current_val = current_search_filter(label)
     if imgui.BeginCombo("##"..label, search_filter[label], 0) then
 
         -- Iterate through the list of valid values for this label
-        for k, v in util.spairs(filters[label]) do
+        for k, v in util.spairs(filters[label], order) do
 
             -- Select the value that matches our current search filter
             local is_selected = search_filter[label] == k
@@ -332,11 +423,26 @@ local render_ui = function(open)
     -- Item name search input box
     search_item_name, _ = imgui.InputText("Item Name", search_item_name, ImGuiInputTextFlags.EnterReturnsTrue)
 
-    -- Dropdown filters
+    -- Dropdown filters, line 1
     render_search_dropdown("Class")
-    render_search_dropdown("Race")
+    imgui.SameLine(300)
+    render_search_dropdown("Race", 300)
+
+    -- Dropdown filters, line 2
     render_search_dropdown("Slot")
-    render_search_dropdown("Stat")
+    imgui.SameLine(300)
+    render_search_dropdown("Stat", 300)
+
+    -- Dropdown filters, line 3
+    render_search_dropdown("Type")
+    imgui.SameLine(300)
+    render_search_dropdown("Aug", 300, function(t, a, b) return tonumber(t[a]) < tonumber(t[b]) end)
+
+    -- Minimum and Maximum price input boxes
+    search_min_price, _ = imgui.InputInt("Min Price", search_min_price, 0, 0)
+    imgui.SameLine(300)
+    search_max_price, _ = imgui.InputInt("Max Price", search_max_price, 0, 0)
+
 
     -- Search button
     if ImGui.Button("Search") then
@@ -361,6 +467,19 @@ local render_ui = function(open)
         -- Signal that we want to start searching for the results
         -- This will poll the results file for the queryID
         start_search = true
+    end
+
+    imgui.SameLine(80)
+    if ImGui.Button("Clear") then
+
+        -- Clear out our text boxes
+        search_item_name = ""
+        search_min_price = 0
+        search_max_price = 0
+
+        -- Clear the search filters
+        search_filter = {}
+
     end
     ImGui.Separator()
 
