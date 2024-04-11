@@ -28,8 +28,8 @@ Run the Lua script in game:
 /lua run bazmon
 ```
 
-[!NOTE]
-Be sure to use the name of the folder you cloned or extracted to when attempting to `/lua run <your_folder_name>`
+> [!NOTE]
+> Be sure to use the name of the folder you cloned or extracted to when attempting to `/lua run <your_folder_name>`
 
 This will launch the UI which is pretty self explanatory.
 
