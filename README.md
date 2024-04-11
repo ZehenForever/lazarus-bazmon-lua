@@ -9,8 +9,8 @@ This tool exists for enable searching the Bazaar from within the game.
 ## How it works
 This is achieved by running two scripts:
 
-1. **Front end**: A normal Lua script (this repo) that is run by MQ's `/lua run <script>` functionality.  It presents the UI and writes its data to a standard .ini file just like any other plugin.  It reads query result data from a separate CSV file populated by the backend server.
-1. **Back end**: A standard Go program ([found here](https://github.com/ZehenForever/lazarus-bazmon-server)) that watches for changes in the Lua .ini file and uses that to essentially proxy queries to the Lazarus Magelo Bazaar search page.  It writes query results to a CSV file that can be in turn read by the Lua script to show those search results in game.
+1. **Front end (this repo)**: A normal Lua script that is run by MQ's `/lua run <script>` functionality.  It presents the UI and writes its data to a standard INI file just like any other plugin.  It reads query result data from a separate CSV file populated by the backend server.
+1. **Back end**: A standard Go program ([at this repo](https://github.com/ZehenForever/lazarus-bazmon-server)) that watches for changes in the INI file containing new search requests. It then constructs an HTTP search of the Lazarus Magelo Bazaar web site, parses the web page results, and writes them to the CSV file. This CSV file is watched by the frontend Lua script, and it displays any matching search results in the UI.
 
 ## Usage
 
