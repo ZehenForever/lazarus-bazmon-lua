@@ -12,6 +12,9 @@ This is achieved by running two scripts:
 1. **Front end (this repo)**: A normal Lua script that is run by MQ's `/lua run <script>` functionality.  It presents the UI and writes its data to a standard INI file just like any other plugin.  It reads query result data from a separate CSV file populated by the backend server.
 1. **Back end**: A standard Go program ([at this repo](https://github.com/ZehenForever/lazarus-bazmon-server)) that watches for changes in the INI file containing new search requests. It then constructs an HTTP search of the Lazarus Magelo Bazaar web site, parses the web page results, and writes them to the CSV file. This CSV file is watched by the frontend Lua script, and it displays any matching search results in the UI.
 
+> [!NOTE]
+> See the [Architecutre](#Architecture) section below to a visual diagram on how this works.
+
 ## Usage
 
 ### Set up the front end (this)
@@ -28,7 +31,7 @@ Run the Lua script in game:
 /lua run bazmon
 ```
 
-> [!NOTE]
+> [!IMPORTANT]
 > Be sure to use the name of the folder you cloned or extracted to when attempting to `/lua run <your_folder_name>`
 
 This will launch the UI which is pretty self explanatory.
@@ -41,3 +44,7 @@ The basic flow is:
 
 ### Set up the backend
 Setting up and using the the backend Go program can be found in [its repository](https://github.com/ZehenForever/lazarus-bazmon-server).
+
+## Architecture
+
+![architecture](https://github.com/zehenforever/lazarus-bazmon-lua/blob/main/architecture.png?raw=true)
