@@ -2,21 +2,21 @@
 A Bazaar search tool Lua script for the Lazarus EQ Emulator server
 
 ## Motivation
-The EQ Bazaar interface does not work on Lazarus, so people use the excellent hosted Magelo web site (https://www.lazaruseq.com/Magelo/index.php?page=bazaar) for the Lazarus server.
+The EQ Bazaar interface does not work on Lazarus, so people use the hosted Magelo web site (https://www.lazaruseq.com/Magelo/index.php?page=bazaar) instead. That is a great tool and a fine option.
 
-We are now able to query the Bazaar in game.
+This tool exists for enable searching the Bazaar from within the game.
 
 ## How it works
 This is achieved by running two scripts:
 
-1. **Front end**: A normal Lua script ([found here](https://github.com/ZehenForever/lazarus-bazmon-lua)) that is run by MQ's `/lua run <script>` functionality.  It presents the UI and writes its data to a standard .ini file just like any other plugin.  It reads query result data from a separate CSV file populated by the backend server.
+1. **Front end**: A normal Lua script (this repo) that is run by MQ's `/lua run <script>` functionality.  It presents the UI and writes its data to a standard .ini file just like any other plugin.  It reads query result data from a separate CSV file populated by the backend server.
 1. **Back end**: A standard Go program ([found here](https://github.com/ZehenForever/lazarus-bazmon-server)) that watches for changes in the Lua .ini file and uses that to essentially proxy queries to the Lazarus Magelo Bazaar search page.  It writes query results to a CSV file that can be in turn read by the Lua script to show those search results in game.
 
 ## Usage
 
 ### Set up the front end (this)
 
-Either download the zip from Github and unpack it alongside your other Lua scripts, or clone the repo to your Lua scripts directory:
+Either [download the zip](https://github.com/ZehenForever/lazarus-bazmon-lua/archive/refs/heads/main.zip) from Github and unzip it alongside your other Lua scripts, or clone the repo to your Lua scripts directory:
 
 ```
 cd C:\PathToE3MQ\lua
@@ -27,6 +27,9 @@ Run the Lua script in game:
 ```
 /lua run bazmon
 ```
+
+[!NOTE]
+Be sure to use the name of the folder you cloned or extracted to when attempting to `/lua run <your_folder_name>`
 
 This will launch the UI which is pretty self explanatory.
 

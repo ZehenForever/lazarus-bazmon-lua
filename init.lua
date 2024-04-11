@@ -16,7 +16,7 @@ local open_gui = true
 local bazaar_wait = 5
 
 -- Default Write output to 'info' messages
--- Override via /collect debug
+-- Override via /bazmon debug
 Write.loglevel = 'info'
 
 local config_file = mq.TLO.MacroQuest.Path() .. '\\config\\BazMonitor.ini'
