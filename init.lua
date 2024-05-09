@@ -290,6 +290,11 @@ local item_types = {
     ["Wind Instrument"] = "23",
 }
 
+local direction = {
+    ["Ascending"] = "ASC",
+    ["Descending"] = "DESC",
+}
+
 -- The master list of all selected search filters
 -- These will be used to build the query to be written to the INI file
 local search_filter = {}
@@ -307,6 +312,7 @@ local filters = {
     ["Stat"] = stats,
     ["Aug"] = aug_types,
     ["Type"] = item_types,
+    ["Direction"] = direction,
 }
 
 -- Builds out the query to be written to the INI file
@@ -444,6 +450,9 @@ local render_ui = function(open)
     render_search_dropdown("Type")
     imgui.SameLine(300)
     render_search_dropdown("Aug", 300, function(t, a, b) return tonumber(t[a]) < tonumber(t[b]) end)
+
+    -- Dropdown filters, line 4
+    render_search_dropdown("Direction")
 
     -- Minimum and Maximum price input boxes
     search_min_price, _ = imgui.InputInt("Min Price", search_min_price, 0, 0)
