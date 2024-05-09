@@ -516,7 +516,11 @@ local render_ui = function(open)
                 ImGui.TableNextColumn()
                 ImGui.Text(result.Price)
                 ImGui.TableNextColumn()
-                ImGui.Text(result.Seller)
+                if ImGui.SmallButton(result.Seller..'##'..i) then
+                    Write.Debug('Navgating to to %s', result.Seller)
+                    mq.cmdf('/target %s', result.Seller)
+                    mq.cmd('/nav target')
+                end
             end
             ImGui.EndTable()
         end
