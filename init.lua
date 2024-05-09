@@ -401,6 +401,8 @@ local render_search_dropdown = function(label --[[string]], line_offset --[[int]
     end
 end
 
+local icons = require('mq.icons')
+local locked = false
 local render_ui = function(open)
     local main_viewport = imgui.GetMainViewport()
     imgui.SetNextWindowPos(main_viewport.WorkPos.x + 650, main_viewport.WorkPos.y + 20, ImGuiCond.FirstUseEver)
@@ -408,7 +410,7 @@ local render_ui = function(open)
     -- change the window size
     imgui.SetNextWindowSize(600, 300, ImGuiCond.FirstUseEver)
 
-    local open, show = imgui.Begin("BazMonitor", true)
+    local open, show = imgui.Begin("BazMon - Bazaar Search", true)
 
     if not show then
         ImGui.End()
@@ -418,6 +420,11 @@ local render_ui = function(open)
     ImGui.PushItemWidth(ImGui.GetFontSize() * -12)
 
     -- Beginning of window elements
+    --local lockedIcon = locked and icons.FA_LOCK .. '##lock'..self.Name or icons.FA_UNLOCK .. '##lock'..self.Name
+    --if ImGui.Button(icons.FA_UNLOCK) then
+    --    IMGui.Button(icons.FA_LOCK)
+    --end
+    imgui.SameLine()
     imgui.Text("Bazaar Search")
 
     -- Item name search input box
@@ -502,7 +509,10 @@ local render_ui = function(open)
                 ImGui.TableNextColumn()
                 ImGui.Text(result.QueryID)
                 ImGui.TableNextColumn()
-                ImGui.Text(result.Item)
+                if ImGui.SmallButton(result.Item..'##'..i) then
+                    Write.Debug('%s clicked', result.Item)
+                    mq.cmdf('/link %s', result.Item)
+                end
                 ImGui.TableNextColumn()
                 ImGui.Text(result.Price)
                 ImGui.TableNextColumn()
@@ -660,6 +670,9 @@ else
 end
 
 mq.bind('/bazmon', bazmonitor)
+
+-- Set the MQ2LinkDB to automatically click on exact matches
+mq.cmd('/link /click on')
 
 Write.Debug('Using BazMonitor config file: %s', config_file)
 
