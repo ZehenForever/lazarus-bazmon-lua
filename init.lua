@@ -25,7 +25,9 @@ local results_file = mq.TLO.MacroQuest.Path() .. '\\config\\BazResults.csv'
 -- An example config for items that you want monitored
 -- We'll use this to write out an example config file if one does not exist
 local example_config = {
-    ['General'] = {},
+    ['General'] = {
+        ['Window Locked'] = false,
+    },
     ['Monitor'] = {
         ['Fabled Earthshaker'] = '50000/Compare|<',
         ['Whirligig Flyer Control Device'] = '100000/Compare|<',
@@ -459,32 +461,29 @@ local render_ui = function(open)
     imgui.SameLine(300)
     search_max_price, _ = imgui.InputInt("Max Price", search_max_price, 0, 0)
 
-
     -- Search button
     if ImGui.Button("Search") then
-        -- What you want the button to do
         search_item_name = trim_space(search_item_name)
         Write.Debug('Searching for "%s"', search_item_name)
 
-        -- Add the search to our INI file
-        local query_id = util.random_string(16)
+        -- Generate a random query ID, to help us match results for display
+        current_query_id = util.random_string(16)
 
-        -- Clear the queries, keep it a single query for now
+        -- Clear the queries; keep it a single query for now
         settings['Queries'] = {} 
-        settings['Queries'][query_id] = build_query()
-
-        -- Set the current query ID to the one we just created
-        current_query_id = query_id
+        settings['Queries'][current_query_id] = build_query()
 
         -- Signal that we want to save the settings to the INI file
-        -- Saving our INI file will trigger the external script to query the bazaar
+        -- Saving our INI file will trigger the server script to query the bazaar
         start_save_settings = true
 
         -- Signal that we want to start searching for the results
-        -- This will poll the results file for the queryID
+        -- The server script will write query results to a CSV file
+        -- This will begin to poll that CSV results file, looking for the matching queryID
         start_search = true
     end
 
+    -- A button that can clear/reset our search
     imgui.SameLine(80)
     if ImGui.Button("Clear") then
 
@@ -499,6 +498,7 @@ local render_ui = function(open)
     end
     ImGui.Separator()
 
+    -- Display our search results
     if currently_searching then
         imgui.Text("Searching for %s ...", search_item_name)
         ImGui.Separator()
@@ -513,6 +513,7 @@ local render_ui = function(open)
             ImGui.TableSetupColumn('Seller', ImGuiTableColumnFlags.DefaultSort)
             ImGui.TableHeadersRow()
 
+            -- Iterate through the search results and display them ar rows in the table
             for i, result in ipairs(search_results) do
                 ImGui.TableNextRow()
                 ImGui.TableNextColumn()
@@ -536,10 +537,9 @@ local render_ui = function(open)
 
     end
 
-
     -- End of main window element area --
 
-    -- Required for window elements
+    -- Clean up the window elements
     imgui.Spacing()
     imgui.PopItemWidth()
     imgui.End()
@@ -547,6 +547,9 @@ local render_ui = function(open)
     return open
 end
 
+-- The bind callback for the /bazmon command
+-- This function is for debugging and testing purposes
+-- Users should use the UI to interact with the script
 local bazmonitor = function(...)
     local args = {...}
 
@@ -656,16 +659,12 @@ local bazmonitor = function(...)
         end
     end
 
+    -- Parse the CSV file
     if args[1] == 'csv' then
         Write.Debug('Reading CSV file: %s', results_file)
         for index, result in ftcsv.parseLine(results_file, ",") do
             Write.Debug('Result[%d]: %s "%s" %s %s', index, result.QueryID, result.Item, result.Price, result.Seller)
         end
-    end
-
-    if args[1] == 'ui' then
-        Write.Debug('Rendering UI')
-        render_ui()
     end
 
 end
@@ -675,6 +674,20 @@ end
 if util.file_exists(config_file) then
     Write.Info('Config file exists: %s', config_file)
     settings = ini.parse(config_file)
+    
+    -- Check for certain new settings that may not exist in the config file
+    if not settings['General'] then
+        settings['General'] = {}
+    end
+    if not settings['General']['Window Locked'] then
+        settings['General']['Window Locked'] = false
+    end
+    if not settings['Monitor'] then
+        settings['Monitor'] = {}
+    end
+    if not settings['Queries'] then
+        settings['Queries'] = {}
+    end
 else
     Write.Info('Config file does NOT exist: %s', config_file)
     Write.Info('Writing example config to %s', config_file)
@@ -682,6 +695,7 @@ else
     settings = example_config
 end
 
+-- Bind the bazmon command 
 mq.bind('/bazmon', bazmonitor)
 
 -- Set the MQ2LinkDB to automatically click on exact matches
