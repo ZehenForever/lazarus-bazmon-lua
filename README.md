@@ -1,6 +1,8 @@
 # lazarus-bazmon-lua
 A Bazaar search tool Lua script for the Lazarus EQ Emulator server
 
+![Screenshot](https://github.com/zehenforever/lazarus-bazmon-lua/blob/main/gui.png?raw=true)
+
 ## Motivation
 The EQ Bazaar interface does not work on Lazarus, so people use the hosted Magelo web site (https://www.lazaruseq.com/Magelo/index.php?page=bazaar) instead. That is a great tool and a fine option.
 
