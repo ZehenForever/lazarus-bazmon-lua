@@ -410,28 +410,36 @@ local render_search_dropdown = function(label --[[string]], line_offset --[[int]
 end
 
 local icons = require('mq.icons')
-local locked = false
 local render_ui = function(open)
     local main_viewport = imgui.GetMainViewport()
-    imgui.SetNextWindowPos(main_viewport.WorkPos.x + 650, main_viewport.WorkPos.y + 20, ImGuiCond.FirstUseEver)
 
-    -- change the window size
+    -- Set the window position and size for the first run
+    imgui.SetNextWindowPos(main_viewport.WorkPos.x + 650, main_viewport.WorkPos.y + 20, ImGuiCond.FirstUseEver)
     imgui.SetNextWindowSize(600, 300, ImGuiCond.FirstUseEver)
 
-    local open, show = imgui.Begin("BazMon - Bazaar Search", true)
+    -- Begin the window
+    local flags = 0
+    if settings['General']['Window Locked'] then flags = bit32.bor(flags, ImGuiWindowFlags.NoMove) end
+    local open, show = imgui.Begin("BazMon - Bazaar Search", true, flags)
 
     if not show then
-        ImGui.End()
+        imgui.End()
         return open
     end
 
-    ImGui.PushItemWidth(ImGui.GetFontSize() * -12)
+    imgui.PushItemWidth(imgui.GetFontSize() * -12)
 
     -- Beginning of window elements
-    --local lockedIcon = locked and icons.FA_LOCK .. '##lock'..self.Name or icons.FA_UNLOCK .. '##lock'..self.Name
-    --if ImGui.Button(icons.FA_UNLOCK) then
-    --    IMGui.Button(icons.FA_LOCK)
-    --end
+    
+    -- Window lock button
+    local lockedIcon = settings['General']['Window Locked'] and icons.FA_LOCK.."##lock" or icons.FA_UNLOCK.."##lock"
+    if imgui.Button(lockedIcon) then
+        settings['General']['Window Locked'] = not settings['General']['Window Locked']
+        imgui.Locked = settings['General']['Window Locked']
+        save_settings(settings)
+    end
+
+    -- Header label
     imgui.SameLine()
     imgui.Text("Bazaar Search")
 
@@ -462,7 +470,7 @@ local render_ui = function(open)
     search_max_price, _ = imgui.InputInt("Max Price", search_max_price, 0, 0)
 
     -- Search button
-    if ImGui.Button("Search") then
+    if imgui.Button("Search") then
         search_item_name = trim_space(search_item_name)
         Write.Debug('Searching for "%s"', search_item_name)
 
