@@ -433,7 +433,7 @@ local render_ui = function(open)
 
     local windowSize = imgui.GetWindowWidth()
     local halfSize = windowSize / 2
-    Write.Debug('Window size: %s', windowSize)
+    --Write.Debug('Window size: %s', windowSize)
 
     -- Beginning of window elements
     
