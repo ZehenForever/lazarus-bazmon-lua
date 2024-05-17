@@ -378,13 +378,15 @@ local search_filter_index = function(filter)
 end
 
 local render_search_dropdown = function(label --[[string]], line_offset --[[int]], order --[[function]])
-    if line_offset == nil then
-        line_offset = 0
-    end
-    label = util.upper_first(label)
+    if line_offset == nil then line_offset = 0 end
+    local windowSize = imgui.GetWindowWidth()
+    local labelPadding = windowSize / 4
+    if labelPadding < 85 then labelPadding = 85 end
+
+    label = label
     imgui.Text(label)
-    imgui.SameLine(line_offset + 100)
-    imgui.PushItemWidth(150)
+    imgui.SameLine(line_offset + labelPadding - 20)
+    imgui.PushItemWidth(windowSize / 4)
     local current_val = current_search_filter(label)
     if imgui.BeginCombo("##"..label, search_filter[label], 0) then
 
@@ -429,6 +431,10 @@ local render_ui = function(open)
 
     imgui.PushItemWidth(imgui.GetFontSize() * -12)
 
+    local windowSize = imgui.GetWindowWidth()
+    local halfSize = windowSize / 2
+    Write.Debug('Window size: %s', windowSize)
+
     -- Beginning of window elements
     
     -- Window lock button
@@ -448,25 +454,25 @@ local render_ui = function(open)
 
     -- Dropdown filters, line 1
     render_search_dropdown("Class")
-    imgui.SameLine(300)
-    render_search_dropdown("Race", 300)
+    imgui.SameLine(halfSize)
+    render_search_dropdown("Race", halfSize)
 
     -- Dropdown filters, line 2
     render_search_dropdown("Slot")
-    imgui.SameLine(300)
-    render_search_dropdown("Stat", 300)
+    imgui.SameLine(halfSize)
+    render_search_dropdown("Stat", halfSize)
 
     -- Dropdown filters, line 3
     render_search_dropdown("Type")
-    imgui.SameLine(300)
-    render_search_dropdown("Aug", 300, function(t, a, b) return tonumber(t[a]) < tonumber(t[b]) end)
+    imgui.SameLine(halfSize)
+    render_search_dropdown("Aug", halfSize, function(t, a, b) return tonumber(t[a]) < tonumber(t[b]) end)
 
     -- Dropdown filters, line 4
     render_search_dropdown("Direction")
 
     -- Minimum and Maximum price input boxes
     search_min_price, _ = imgui.InputInt("Min Price", search_min_price, 0, 0)
-    imgui.SameLine(300)
+    imgui.SameLine(halfSize)
     search_max_price, _ = imgui.InputInt("Max Price", search_max_price, 0, 0)
 
     -- Search button
