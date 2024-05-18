@@ -30,8 +30,8 @@ local example_config = {
         ['Window Locked'] = false,
     },
     ['Monitor'] = {
-        ['Fabled Earthshaker'] = '50000/Compare|<',
-        ['Whirligig Flyer Control Device'] = '100000/Compare|<',
+        ['Fabled Earthshaker'] = '50000/Price|<',
+        ['Whirligig Flyer Control Device'] = '100000/Price|<',
     },
     ['Queries'] = {},
 }
@@ -413,110 +413,231 @@ local render_search_dropdown = function(label --[[string]], line_offset --[[int]
     end
 end
 
-local search_ui = function(halfSize)
+-- Renders contents for the "Search" tab 
+local render_search_ui = function(windowSize)
+    ImGui.Text("Search the Bazaar for items")
 
-        -- Item name search input box
-        search_item_name, _ = ImGui.InputText("Item Name", search_item_name, ImGuiInputTextFlags.EnterReturnsTrue)
+    local halfSize = windowSize / 2
 
-        -- Dropdown filters, line 1
-        render_search_dropdown("Class")
-        ImGui.SameLine(halfSize)
-        render_search_dropdown("Race", halfSize)
+    -- Item name search input box
+    search_item_name, _ = ImGui.InputText("Item Name", search_item_name, ImGuiInputTextFlags.EnterReturnsTrue)
 
-        -- Dropdown filters, line 2
-        render_search_dropdown("Slot")
-        ImGui.SameLine(halfSize)
-        render_search_dropdown("Stat", halfSize)
+    -- Dropdown filters, line 1
+    render_search_dropdown("Class")
+    ImGui.SameLine(halfSize)
+    render_search_dropdown("Race", halfSize)
 
-        -- Dropdown filters, line 3
-        render_search_dropdown("Type")
-        ImGui.SameLine(halfSize)
-        render_search_dropdown("Aug", halfSize, function(t, a, b) return tonumber(t[a]) < tonumber(t[b]) end)
+    -- Dropdown filters, line 2
+    render_search_dropdown("Slot")
+    ImGui.SameLine(halfSize)
+    render_search_dropdown("Stat", halfSize)
 
-        -- Dropdown filters, line 4
-        render_search_dropdown("Direction")
+    -- Dropdown filters, line 3
+    render_search_dropdown("Type")
+    ImGui.SameLine(halfSize)
+    render_search_dropdown("Aug", halfSize, function(t, a, b) return tonumber(t[a]) < tonumber(t[b]) end)
 
-        -- Minimum and Maximum price input boxes
-        search_min_price, _ = ImGui.InputInt("Min Price", search_min_price, 0, 0)
-        ImGui.SameLine(halfSize)
-        search_max_price, _ = ImGui.InputInt("Max Price", search_max_price, 0, 0)
+    -- Dropdown filters, line 4
+    render_search_dropdown("Direction")
 
-        -- Search button
-        if ImGui.Button("Search") then
-            search_item_name = trim_space(search_item_name)
-            Write.Debug('Searching for "%s"', search_item_name)
+    -- Minimum and Maximum price input boxes
+    search_min_price, _ = ImGui.InputInt("Min Price", search_min_price, 0, 0)
+    ImGui.SameLine(halfSize)
+    search_max_price, _ = ImGui.InputInt("Max Price", search_max_price, 0, 0)
 
-            -- Generate a random query ID, to help us match results for display
-            current_query_id = util.random_string(16)
+    -- Search button
+    if ImGui.Button("Search") then
+        search_item_name = trim_space(search_item_name)
+        Write.Debug('Searching for "%s"', search_item_name)
 
-            -- Clear the queries; keep it a single query for now
-            settings['Queries'] = {} 
-            settings['Queries'][current_query_id] = build_query()
+        -- Generate a random query ID, to help us match results for display
+        current_query_id = util.random_string(16)
 
-            -- Signal that we want to save the settings to the INI file
-            -- Saving our INI file will trigger the server script to query the bazaar
-            start_save_settings = true
+        -- Clear the queries; keep it a single query for now
+        settings['Queries'] = {} 
+        settings['Queries'][current_query_id] = build_query()
 
-            -- Signal that we want to start searching for the results
-            -- The server script will write query results to a CSV file
-            -- This will begin to poll that CSV results file, looking for the matching queryID
-            start_search = true
-        end
+        -- Signal that we want to save the settings to the INI file
+        -- Saving our INI file will trigger the server script to query the bazaar
+        start_save_settings = true
 
-        -- A button that can clear/reset our search
-        ImGui.SameLine(80)
-        if ImGui.Button("Clear") then
+        -- Signal that we want to start searching for the results
+        -- The server script will write query results to a CSV file
+        -- This will begin to poll that CSV results file, looking for the matching queryID
+        start_search = true
+    end
 
-            -- Clear out our text boxes
-            search_item_name = ""
-            search_min_price = 0
-            search_max_price = 0
+    -- A button that can clear/reset our search
+    ImGui.SameLine(80)
+    if ImGui.Button("Clear") then
 
-            -- Clear the search filters
-            search_filter = {}
+        -- Clear out our text boxes
+        search_item_name = ""
+        search_min_price = 0
+        search_max_price = 0
 
-        end
+        -- Clear the search filters
+        search_filter = {}
+
+    end
+    ImGui.Separator()
+
+    -- Display our search results
+    if currently_searching then
+        ImGui.Text("Searching for %s ...", search_item_name)
         ImGui.Separator()
+    else
+        ImGui.Text("Search Results")
 
-        -- Display our search results
-        if currently_searching then
-            ImGui.Text("Searching for %s ...", search_item_name)
-            ImGui.Separator()
-        else
-            ImGui.Text("Search Results")
+        -- Results table
+        if ImGui.BeginTable('BazResults', 4, ImGuiTableFlags.Borders) then
+            ImGui.TableSetupColumn('QueryID', ImGuiTableColumnFlags.DefaultSort)
+            ImGui.TableSetupColumn('Item', ImGuiTableColumnFlags.DefaultSort)
+            ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.DefaultSort)
+            ImGui.TableSetupColumn('Seller', ImGuiTableColumnFlags.DefaultSort)
+            ImGui.TableHeadersRow()
 
-            -- Results table
-            if ImGui.BeginTable('BazResults', 4, ImGuiTableFlags.Borders) then
-                ImGui.TableSetupColumn('QueryID', ImGuiTableColumnFlags.DefaultSort)
-                ImGui.TableSetupColumn('Item', ImGuiTableColumnFlags.DefaultSort)
-                ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.DefaultSort)
-                ImGui.TableSetupColumn('Seller', ImGuiTableColumnFlags.DefaultSort)
-                ImGui.TableHeadersRow()
-
-                -- Iterate through the search results and display them ar rows in the table
-                for i, result in ipairs(search_results) do
-                    ImGui.TableNextRow()
-                    ImGui.TableNextColumn()
-                    ImGui.Text(result.QueryID)
-                    ImGui.TableNextColumn()
-                    if ImGui.SmallButton(result.Item..'##'..i) then
-                        Write.Debug('%s clicked', result.Item)
-                        mq.cmdf('/link %s', result.Item)
-                    end
-                    ImGui.TableNextColumn()
-                    ImGui.Text(result.Price)
-                    ImGui.TableNextColumn()
-                    if ImGui.SmallButton(result.Seller..'##'..i) then
-                        Write.Debug('Navgating to to %s', result.Seller)
-                        mq.cmdf('/target %s', result.Seller)
-                        mq.cmd('/nav target')
-                    end
+            -- Iterate through the search results and display them ar rows in the table
+            for i, result in ipairs(search_results) do
+                ImGui.TableNextRow()
+                ImGui.TableNextColumn()
+                ImGui.Text(result.QueryID)
+                ImGui.TableNextColumn()
+                if ImGui.SmallButton(result.Item..'##'..i) then
+                    Write.Debug('%s clicked', result.Item)
+                    mq.cmdf('/link %s', result.Item)
                 end
-                ImGui.EndTable()
+                ImGui.TableNextColumn()
+                ImGui.Text(result.Price)
+                ImGui.TableNextColumn()
+                if ImGui.SmallButton(result.Seller..'##'..i) then
+                    Write.Debug('Navgating to to %s', result.Seller)
+                    mq.cmdf('/target %s', result.Seller)
+                    mq.cmd('/nav target')
+                end
             end
-
+            ImGui.EndTable()
         end
+    end
 
+end
+
+local monitor_compare = {
+    ["Equals"] = "=",
+    ["Less than"] = "<",
+    ["Greater than"] = ">",
+} 
+
+local monitor_items = {}
+local current_monitor_item = ""
+local current_monitor_compare = ""
+local current_monitor_price = 0
+
+local clear_monitor_filters = function()
+    current_monitor_item = ""
+    current_monitor_compare = "Less than"
+    current_monitor_price = 0
+end
+
+local parse_monitor_filter = function(filter_string)
+    local filter = {
+        ["Price"] = 0,
+        ["Compare"] = "",
+    }
+    for w in string.gmatch(filter_string, "(.[^/]+)") do
+        local pos = string.find(w, "|")
+        local key = string.sub(w, 2, pos-1)
+        local value = string.sub(w, pos+1)
+        filter[key] = value
+    end
+    return filter
+end
+
+local render_monitor_ui = function(windowSize)
+    ImGui.Text("Monitor the Bazaar for items based on conditions")
+    ImGui.TextColored(1, 0, 0, 1, "WARNING: This feature is not yet implemented!")
+    ImGui.Separator()
+
+    local monitor_item = {}
+    local labelWidth = 80
+    local inputWidth = windowSize / 3
+
+    -- Item name search input box
+    ImGui.Text("Item name")
+    ImGui.SameLine(labelWidth)
+    ImGui.PushItemWidth(inputWidth)
+    current_monitor_item, _ = ImGui.InputText("", "", 0, 0)
+
+    -- Comparison operator dropdown
+    local compare = "Less than"
+    ImGui.Text("Is")
+    ImGui.SameLine(labelWidth)
+    ImGui.PushItemWidth(inputWidth)
+    if ImGui.BeginCombo("##compare", compare, 0) then
+        for k, v in pairs(monitor_compare) do
+            local is_selected = compare == monitor_compare[k]
+            if ImGui.Selectable(k, is_selected) then
+                current_monitor_compare = v
+            end
+            if is_selected then
+                ImGui.SetItemDefaultFocus()
+            end
+        end
+        ImGui.EndCombo()
+    end
+
+    -- Price input box
+    ImGui.Text("Price")
+    ImGui.SameLine(labelWidth)
+    current_monitor_price, _ = ImGui.InputInt("", 0, 0, 0)
+
+    -- Save and Clear buttons
+    ImGui.SameLine(inputWidth * 2)
+    if ImGui.Button("Save") then
+        settings['Monitor'][current_monitor_item] = string.format("/Price|%d/Compare|%s",
+            current_monitor_price, current_monitor_compare)
+        save_settings(settings)
+        clear_monitor_filters()
+    end
+    ImGui.SameLine()
+    if ImGui.Button("Clear") then
+        clear_monitor_filters()
+    end
+
+    ImGui.Separator()
+
+    -- Display the monitor items
+    ImGui.Text("Monitor Items")
+    if ImGui.BeginTable('BazResults', 4, ImGuiTableFlags.Borders) then
+        ImGui.TableSetupColumn('Item name', ImGuiTableColumnFlags.WidthFixed, inputWidth * 1.5)
+        ImGui.TableSetupColumn('Is', ImGuiTableColumnFlags.WidthFixed, 20)
+        ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.WidthFixed, inputWidth * 0.5)
+        ImGui.TableSetupColumn('', ImGuiTableColumnFlags.DefaultSort)
+        ImGui.TableHeadersRow()
+
+        -- Iterate through the search results and display them ar rows in the table
+        for name,v  in pairs(settings['Monitor']) do
+            local filter = parse_monitor_filter(v)
+            ImGui.TableNextRow()
+            ImGui.TableNextColumn()
+            ImGui.Text(name)
+            ImGui.TableNextColumn()
+            ImGui.Text(filter["Compare"])
+            ImGui.TableNextColumn()
+            ImGui.Text(filter["Price"])
+            ImGui.TableNextColumn()
+            if ImGui.SmallButton('Edit##') then
+                Write.Debug('%s edit clicked', name)
+                --mq.cmdf('/link %s', result.Item)
+            end
+            ImGui.SameLine()
+            if ImGui.SmallButton('Delete##') then
+                Write.Debug('%s edit clicked', name)
+                --mq.cmdf('/link %s', result.Item)
+            end
+        end
+        ImGui.EndTable()
+    end
 end
 
 -- Renders the main UI for the Bazaar search tool
@@ -540,7 +661,6 @@ local render_ui = function(open)
     ImGui.PushItemWidth(ImGui.GetFontSize() * -12)
 
     local windowSize = ImGui.GetWindowWidth()
-    local halfSize = windowSize / 2
 
     -- Window lock button
     local lockedIcon = settings['General']['Window Locked'] and icons.FA_LOCK.."##lock" or icons.FA_UNLOCK.."##lock"
@@ -557,12 +677,13 @@ local render_ui = function(open)
 
         -- Bazaar search tab
         if ImGui.BeginTabItem('Search') then
-            search_ui(halfSize)
+            render_search_ui(windowSize)
             ImGui.EndTabItem()
         end
 
         -- Bazaar monitor tab
         if ImGui.BeginTabItem('Monitor') then
+            render_monitor_ui(windowSize)
             ImGui.EndTabItem()
         end
 
