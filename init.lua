@@ -411,6 +411,7 @@ local render_search_dropdown = function(label --[[string]], line_offset --[[int]
 
         ImGui.EndCombo()
     end
+    ImGui.PopItemWidth()
 end
 
 -- Renders contents for the "Search" tab 
@@ -528,9 +529,8 @@ local monitor_compare = {
     ["Greater than"] = ">",
 } 
 
-local monitor_items = {}
 local current_monitor_item = ""
-local current_monitor_compare = ""
+local current_monitor_compare = "<"
 local current_monitor_price = 0
 
 local clear_monitor_filters = function()
@@ -546,10 +546,15 @@ local parse_monitor_filter = function(filter_string)
     }
     for w in string.gmatch(filter_string, "(.[^/]+)") do
         local pos = string.find(w, "|")
+        if pos == nil then
+            --Write.Error('Invalid filter string: %s', filter_string)
+            goto returnnow
+        end
         local key = string.sub(w, 2, pos-1)
         local value = string.sub(w, pos+1)
         filter[key] = value
     end
+    ::returnnow::
     return filter
 end
 
@@ -558,24 +563,19 @@ local render_monitor_ui = function(windowSize)
     ImGui.TextColored(1, 0, 0, 1, "WARNING: This feature is not yet implemented!")
     ImGui.Separator()
 
-    local monitor_item = {}
     local labelWidth = 80
-    local inputWidth = windowSize / 3
 
     -- Item name search input box
     ImGui.Text("Item name")
     ImGui.SameLine(labelWidth)
-    ImGui.PushItemWidth(inputWidth)
-    current_monitor_item, _ = ImGui.InputText("", "", 0, 0)
+    current_monitor_item, _ = ImGui.InputText("", current_monitor_item, ImGuiInputTextFlags.EnterReturnsTrue)
 
     -- Comparison operator dropdown
-    local compare = "Less than"
     ImGui.Text("Is")
     ImGui.SameLine(labelWidth)
-    ImGui.PushItemWidth(inputWidth)
-    if ImGui.BeginCombo("##compare", compare, 0) then
+    if ImGui.BeginCombo("##compare", current_monitor_compare, 0) then
         for k, v in pairs(monitor_compare) do
-            local is_selected = compare == monitor_compare[k]
+            local is_selected = current_monitor_compare == monitor_compare[k]
             if ImGui.Selectable(k, is_selected) then
                 current_monitor_compare = v
             end
@@ -589,10 +589,10 @@ local render_monitor_ui = function(windowSize)
     -- Price input box
     ImGui.Text("Price")
     ImGui.SameLine(labelWidth)
-    current_monitor_price, _ = ImGui.InputInt("", 0, 0, 0)
+    current_monitor_price, _ = ImGui.InputInt("", current_monitor_price, 0, 0)
 
     -- Save and Clear buttons
-    ImGui.SameLine(inputWidth * 2)
+    ImGui.SameLine(windowSize - 120)
     if ImGui.Button("Save") then
         settings['Monitor'][current_monitor_item] = string.format("/Price|%d/Compare|%s",
             current_monitor_price, current_monitor_compare)
@@ -609,33 +609,44 @@ local render_monitor_ui = function(windowSize)
     -- Display the monitor items
     ImGui.Text("Monitor Items")
     if ImGui.BeginTable('BazResults', 4, ImGuiTableFlags.Borders) then
-        ImGui.TableSetupColumn('Item name', ImGuiTableColumnFlags.WidthFixed, inputWidth * 1.5)
+        ImGui.TableSetupColumn('Item name')
         ImGui.TableSetupColumn('Is', ImGuiTableColumnFlags.WidthFixed, 20)
-        ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.WidthFixed, inputWidth * 0.5)
-        ImGui.TableSetupColumn('', ImGuiTableColumnFlags.DefaultSort)
+        ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.WidthFixed, 76)
+        ImGui.TableSetupColumn('', ImGuiTableColumnFlags.WidthFixed, 84)
         ImGui.TableHeadersRow()
 
         -- Iterate through the search results and display them ar rows in the table
         for name,v  in pairs(settings['Monitor']) do
             local filter = parse_monitor_filter(v)
+
             ImGui.TableNextRow()
             ImGui.TableNextColumn()
             ImGui.Text(name)
             ImGui.TableNextColumn()
-            ImGui.Text(filter["Compare"])
+            if filter["Compare"] == "" then
+                ImGui.TextColored(1, 0, 0, 1, "!!!")
+            else
+                ImGui.Text(filter["Compare"])
+            end
             ImGui.TableNextColumn()
-            ImGui.Text(filter["Price"])
+            if filter["Compare"] == "" then
+                ImGui.TextColored(1, 0, 0, 1, "ERROR")
+            else
+                ImGui.Text(filter["Price"])
+            end
             ImGui.TableNextColumn()
-            if ImGui.SmallButton('Edit##') then
-                Write.Debug('%s edit clicked', name)
-                --mq.cmdf('/link %s', result.Item)
+            if ImGui.SmallButton('Edit##'..name) then
+                Write.Debug('Monitor edit %s', name)
+                current_monitor_item = name
+                current_monitor_price = filter["Price"]
+                current_monitor_compare = filter["Compare"]
             end
             ImGui.SameLine()
-            if ImGui.SmallButton('Delete##') then
-                Write.Debug('%s edit clicked', name)
-                --mq.cmdf('/link %s', result.Item)
+            if ImGui.SmallButton('Delete##'..name) then
+                Write.Debug('Monitor delete %s', name)
             end
         end
+
         ImGui.EndTable()
     end
 end
