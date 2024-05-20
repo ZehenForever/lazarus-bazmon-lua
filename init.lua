@@ -421,7 +421,13 @@ local render_search_ui = function(windowSize)
     local halfSize = windowSize / 2
 
     -- Item name search input box
-    search_item_name, _ = ImGui.InputText("Item Name", search_item_name, ImGuiInputTextFlags.EnterReturnsTrue)
+    local itemNamePadding = (halfSize / 2) - 20
+    if itemNamePadding < 85 then itemNamePadding = 85 end
+    ImGui.PushItemWidth(halfSize * 1.5)
+    ImGui.Text("Item name")
+    ImGui.SameLine(itemNamePadding)
+    search_item_name, _ = ImGui.InputText("##itemname", search_item_name, ImGuiInputTextFlags.EnterReturnsTrue)
+    ImGui.PopItemWidth()
 
     -- Dropdown filters, line 1
     render_search_dropdown("Class")
@@ -438,13 +444,26 @@ local render_search_ui = function(windowSize)
     ImGui.SameLine(halfSize)
     render_search_dropdown("Aug", halfSize, function(t, a, b) return tonumber(t[a]) < tonumber(t[b]) end)
 
-    -- Dropdown filters, line 4
-    render_search_dropdown("Direction")
 
     -- Minimum and Maximum price input boxes
-    search_min_price, _ = ImGui.InputInt("Min Price", search_min_price, 0, 0)
+    local quarterSize = windowSize / 4
+    local minPriceMargin = quarterSize
+    if minPriceMargin < 85 then minPriceMargin = 85 end
+    local maxPriceMargin = halfSize * 1.5
+    if maxPriceMargin < (halfSize + 85) then maxPriceMargin = halfSize + 85 end
+
+    ImGui.PushItemWidth(quarterSize)
+    ImGui.Text("Min Price")
+    ImGui.SameLine(minPriceMargin - 20)
+    search_min_price, _ = ImGui.InputInt("##minprice", search_min_price, 0, 0, 0)
     ImGui.SameLine(halfSize)
-    search_max_price, _ = ImGui.InputInt("Max Price", search_max_price, 0, 0)
+    ImGui.Text("Max Price")
+    ImGui.SameLine(maxPriceMargin - 20)
+    search_max_price, _ = ImGui.InputInt("##maxprice", search_max_price, 0, 0, 0)
+    ImGui.PopItemWidth()
+
+    -- Dropdown filters, line 4
+    render_search_dropdown("Direction")
 
     -- Search button
     if ImGui.Button("Search") then
@@ -667,6 +686,13 @@ local render_monitor_ui = function(windowSize)
     end
 end
 
+local render_monitor_results_ui = function()
+    ImGui.Text("Monitor the Bazaar for items based on conditions")
+    ImGui.TextColored(1, 0, 0, 1, "WARNING: This feature is not yet implemented!")
+    ImGui.Separator()
+
+end
+
 -- Renders the main UI for the Bazaar search tool
 local render_ui = function(open)
     local main_viewport = ImGui.GetMainViewport()
@@ -711,6 +737,12 @@ local render_ui = function(open)
         -- Bazaar monitor tab
         if ImGui.BeginTabItem('Monitor') then
             render_monitor_ui(windowSize)
+            ImGui.EndTabItem()
+        end
+
+        -- Bazaar monitor results tab
+        if ImGui.BeginTabItem('Monitor Results') then
+            render_monitor_results_ui()
             ImGui.EndTabItem()
         end
 
