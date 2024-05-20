@@ -529,11 +529,13 @@ local monitor_compare = {
     ["Greater than"] = ">",
 } 
 
+local previous_monitor_item = ""
 local current_monitor_item = ""
 local current_monitor_compare = "<"
 local current_monitor_price = 0
 
 local clear_monitor_filters = function()
+    previous_monitor_item = ""
     current_monitor_item = ""
     current_monitor_compare = "Less than"
     current_monitor_price = 0
@@ -568,12 +570,12 @@ local render_monitor_ui = function(windowSize)
     -- Item name search input box
     ImGui.Text("Item name")
     ImGui.SameLine(labelWidth)
-    current_monitor_item, _ = ImGui.InputText("", current_monitor_item, ImGuiInputTextFlags.EnterReturnsTrue)
+    current_monitor_item, _ = ImGui.InputText("##monitoritem", current_monitor_item, 0)
 
     -- Comparison operator dropdown
     ImGui.Text("Is")
     ImGui.SameLine(labelWidth)
-    if ImGui.BeginCombo("##compare", current_monitor_compare, 0) then
+    if ImGui.BeginCombo("##monitorcompare", current_monitor_compare, 0) then
         for k, v in pairs(monitor_compare) do
             local is_selected = current_monitor_compare == monitor_compare[k]
             if ImGui.Selectable(k, is_selected) then
@@ -589,13 +591,19 @@ local render_monitor_ui = function(windowSize)
     -- Price input box
     ImGui.Text("Price")
     ImGui.SameLine(labelWidth)
-    current_monitor_price, _ = ImGui.InputInt("", current_monitor_price, 0, 0)
+    current_monitor_price, _ = ImGui.InputInt("##monitorprice", current_monitor_price, 10, 100)
 
     -- Save and Clear buttons
     ImGui.SameLine(windowSize - 120)
     if ImGui.Button("Save") then
         settings['Monitor'][current_monitor_item] = string.format("/Price|%d/Compare|%s",
             current_monitor_price, current_monitor_compare)
+
+        -- If we are editing an existing item and the name has changed, remove it
+        if previous_monitor_item ~= "" and previous_monitor_item ~= current_monitor_item then
+            settings['Monitor'][previous_monitor_item] = nil
+        end
+
         save_settings(settings)
         clear_monitor_filters()
     end
@@ -615,9 +623,14 @@ local render_monitor_ui = function(windowSize)
         ImGui.TableSetupColumn('', ImGuiTableColumnFlags.WidthFixed, 84)
         ImGui.TableHeadersRow()
 
-        -- Iterate through the search results and display them ar rows in the table
-        for name,v  in pairs(settings['Monitor']) do
-            local filter = parse_monitor_filter(v)
+        -- First, sort the monitor items by name
+        local sorted_items = {}
+        for k in pairs(settings['Monitor']) do table.insert(sorted_items, k) end
+        table.sort(sorted_items)
+
+        -- Iterate through the sorted_items and display the monitor items
+        for _, name in ipairs(sorted_items) do
+            local filter = parse_monitor_filter(settings['Monitor'][name])
 
             ImGui.TableNextRow()
             ImGui.TableNextColumn()
@@ -637,6 +650,7 @@ local render_monitor_ui = function(windowSize)
             ImGui.TableNextColumn()
             if ImGui.SmallButton('Edit##'..name) then
                 Write.Debug('Monitor edit %s', name)
+                previous_monitor_item = name
                 current_monitor_item = name
                 current_monitor_price = filter["Price"]
                 current_monitor_compare = filter["Compare"]
@@ -644,6 +658,8 @@ local render_monitor_ui = function(windowSize)
             ImGui.SameLine()
             if ImGui.SmallButton('Delete##'..name) then
                 Write.Debug('Monitor delete %s', name)
+                settings['Monitor'][name] = nil
+                save_settings(settings)
             end
         end
 
