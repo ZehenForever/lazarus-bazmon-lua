@@ -16,6 +16,10 @@ local open_gui = true
 -- Time in seconds to wait for the bazaar to respond
 local bazaar_wait = 5
 
+-- Whether to show alerts when the monitor finds new results
+local show_monitor_alerts_key = 'Show Monitor Alerts'
+local show_monitor_alerts_val = true
+
 -- Time in seconds to wait between checking the bazaar for new items
 local monitor_server_poll_delay_key = 'Monitor Server Poll (seconds)'
 local monitor_server_poll_delay_val = 300
@@ -117,14 +121,32 @@ local pad_number = function(value, length)
 end
 
 -- Loads the monitor results CSV file
+local previous_results = {}
+local monitor_results_previously_run = false
 local load_monitor_results = function()
     Write.Debug('Reading monitor results CSV file')
 
     monitor_results = {}
 
+    -- Read the monitor results file
     for index, result in ftcsv.parseLine(monitor_results_file, ",") do
-        Write.Debug('MonitorResult[%d]: %s "%s" %s %s', index, result.QueryID, result.Item, result.Price, result.Seller)
+        local monitor_result_line = string.format('"%s" %s %s', result.Item, result.Price, result.Seller)
+        Write.Debug('MonitorResult[%d]: %s', index, monitor_result_line)
+
+        -- Add the result to the monitor results table
         monitor_results[#monitor_results+1] = result
+
+        -- Check if this is a new result since the last time we checked
+        if monitor_results_previously_run and settings['General'][show_monitor_alerts_key] then
+            if not previous_results[monitor_result_line] then
+                local message = string.format('BazMon: New Monitor Result! %s', monitor_result_line)
+                mq.cmdf('/echo %s', message)
+                mq.cmdf('/popcustom 14 5 %s', message)
+            end
+        end
+        
+        -- Add this result to the previous results table
+        previous_results[monitor_result_line] = true
     end
 
     -- Set the last time the monitor results were polled
@@ -132,6 +154,9 @@ local load_monitor_results = function()
     last_monitor_poll = string.format("%d-%s-%s %s:%s:%s", 
         time.year, pad_number(time.month,2), pad_number(time.day,2), 
         pad_number(time.hour,2), pad_number(time.min,2), pad_number(time.sec,2))
+    
+    -- Set that we have previously run the monitor results
+    monitor_results_previously_run = true
 end
 
 -- The list of classes that can are valid search filters
@@ -968,6 +993,9 @@ if util.file_exists(config_file) then
     end
     if not settings['General'][monitor_results_poll_delay_key] then
         settings['General'][monitor_results_poll_delay_key] = monitor_results_poll_delay_val
+    end
+    if not settings['General'][show_monitor_alerts_key] then
+        settings['General'][show_monitor_alerts_key] = show_monitor_alerts_val
     end
     if not settings['Monitor'] then
         settings['Monitor'] = {}
