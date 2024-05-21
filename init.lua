@@ -126,11 +126,16 @@ local monitor_results_previously_run = false
 local load_monitor_results = function()
     Write.Debug('Reading monitor results CSV file')
 
+    -- Used by the UI to render results
     monitor_results = {}
+
+    -- Local copy of what was in this CSV data set
+    local these_results = {}
 
     -- Read the monitor results file
     for index, result in ftcsv.parseLine(monitor_results_file, ",") do
         local monitor_result_line = string.format('"%s" %s %s', result.Item, result.Price, result.Seller)
+        these_results[monitor_result_line] = true
         Write.Debug('MonitorResult[%d]: %s', index, monitor_result_line)
 
         -- Add the result to the monitor results table
@@ -160,6 +165,14 @@ local load_monitor_results = function()
     
     -- Set that we have previously run the monitor results
     monitor_results_previously_run = true
+
+    -- Delete any previous results that are no longer in the current results
+    -- We don't want to compare new prices against previous low prices that are no longer available
+    for k, _ in pairs(previous_results) do
+        if not these_results[k] then
+            previous_results[k] = nil
+        end
+    end
 end
 
 -- The list of classes that can are valid search filters
