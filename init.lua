@@ -146,7 +146,10 @@ local load_monitor_results = function()
         end
         
         -- Add this result to the previous results table
-        previous_results[monitor_result_line] = result.Price
+        -- but only if it is missing or is less than the previous result
+        if not previous_results[monitor_result_line] or result.Price < previous_results[monitor_result_line] then
+            previous_results[monitor_result_line] = result.Price
+        end
     end
 
     -- Set the last time the monitor results were polled
