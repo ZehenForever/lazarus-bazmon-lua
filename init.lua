@@ -16,12 +16,27 @@ local open_gui = true
 -- Time in seconds to wait for the bazaar to respond
 local bazaar_wait = 5
 
+-- Time in seconds to wait between checking the bazaar for new items
+local monitor_server_poll_delay_key = 'Monitor Server Poll (seconds)'
+local monitor_server_poll_delay_val = 300
+
+-- Time in seconds to wait between checking for updates to the monitor results csv file
+local monitor_results_poll_delay_key = 'Monitor Results Poll (seconds)'
+local monitor_results_poll_delay_val = 10
+
+-- Timestamps for the last time we polled the monitor results file
+local last_monitor_poll = "[waiting...]"
+
+-- Timestamps for the next time to poll the monitor results file
+local next_monitor_poll = os.time() + 10
+
 -- Default Write output to 'info' messages
 -- Override via /bazmon debug
 Write.loglevel = 'info'
 
 local config_file = mq.TLO.MacroQuest.Path() .. '\\config\\BazMonitor.ini'
-local results_file = mq.TLO.MacroQuest.Path() .. '\\config\\BazResults.csv'
+local search_results_file = mq.TLO.MacroQuest.Path() .. '\\config\\BazMon_SearchResults.csv'
+local monitor_results_file = mq.TLO.MacroQuest.Path() .. '\\config\\BazMon_MonitorResults.csv'
 
 -- An example config for items that you want monitored
 -- We'll use this to write out an example config file if one does not exist
@@ -63,10 +78,10 @@ local start_save_settings = false
 local currently_searching = false
 local search_results = {}
 
--- Searches the CSV results file for a queryID
+-- Searches the search results CSV file for a queryID
 -- Waits for a configured number of seconds for the results to be written to the file
 local load_search_results = function(queryID)
-    Write.Debug('Reading CSV file: %s', results_file)
+    Write.Debug('Reading search results CSV file: %s', search_results_file)
 
     currently_searching = true
 
@@ -75,13 +90,13 @@ local load_search_results = function(queryID)
 
     -- loop until time is up, waiting for the results to be written to the file
     local found_item = false
-    for i=1,bazaar_wait do
+    for i = 1, bazaar_wait do
         mq.delay(1000)
-        Write.Debug('Reading CSV file: %s', results_file)
-        for index, result in ftcsv.parseLine(results_file, ",") do
+        Write.Debug('Reading CSV file: %s', search_results_file)
+        for index, result in ftcsv.parseLine(search_results_file, ",") do
             if result.QueryID == queryID then
                 found_item = true
-                Write.Debug('Result[%d]: %s "%s" %s %s', index, result.QueryID, result.Item, result.Price, result.Seller)
+                Write.Debug('SearchResult[%d]: %s "%s" %s %s', index, result.QueryID, result.Item, result.Price, result.Seller)
                 search_results[#search_results+1] = result
             end
         end
@@ -91,6 +106,32 @@ local load_search_results = function(queryID)
     end
 
     currently_searching = false
+end
+
+local monitor_results = {}
+
+-- Pads a number with leading zeros to a specified length, returning a string
+local pad_number = function(value, length)
+    local str = tostring(value)
+    return string.rep('0', length - #str) .. str
+end
+
+-- Loads the monitor results CSV file
+local load_monitor_results = function()
+    Write.Debug('Reading monitor results CSV file')
+
+    monitor_results = {}
+
+    for index, result in ftcsv.parseLine(monitor_results_file, ",") do
+        Write.Debug('MonitorResult[%d]: %s "%s" %s %s', index, result.QueryID, result.Item, result.Price, result.Seller)
+        monitor_results[#monitor_results+1] = result
+    end
+
+    -- Set the last time the monitor results were polled
+    local time = os.date("*t")
+    last_monitor_poll = string.format("%d-%s-%s %s:%s:%s", 
+        time.year, pad_number(time.month,2), pad_number(time.day,2), 
+        pad_number(time.hour,2), pad_number(time.min,2), pad_number(time.sec,2))
 end
 
 -- The list of classes that can are valid search filters
@@ -417,6 +458,7 @@ end
 -- Renders contents for the "Search" tab 
 local render_search_ui = function(windowSize)
     ImGui.Text("Search the Bazaar for items")
+    ImGui.Separator()
 
     local halfSize = windowSize / 2
 
@@ -511,10 +553,10 @@ local render_search_ui = function(windowSize)
 
         -- Results table
         if ImGui.BeginTable('BazResults', 4, ImGuiTableFlags.Borders) then
-            ImGui.TableSetupColumn('QueryID', ImGuiTableColumnFlags.DefaultSort)
-            ImGui.TableSetupColumn('Item', ImGuiTableColumnFlags.DefaultSort)
-            ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.DefaultSort)
-            ImGui.TableSetupColumn('Seller', ImGuiTableColumnFlags.DefaultSort)
+            ImGui.TableSetupColumn('QueryID', ImGuiTableColumnFlags.WidthFixed, 120)
+            ImGui.TableSetupColumn('Item')
+            ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.WidthFixed, 65)
+            ImGui.TableSetupColumn('Seller', ImGuiTableColumnFlags.WidthFixed, 100)
             ImGui.TableHeadersRow()
 
             -- Iterate through the search results and display them ar rows in the table
@@ -543,14 +585,13 @@ local render_search_ui = function(windowSize)
 end
 
 local monitor_compare = {
-    ["Equals"] = "=",
-    ["Less than"] = "<",
-    ["Greater than"] = ">",
+    ["Less than or equal to"] = "<=",
+    ["Greater than or equal to"] = ">=",
 } 
 
 local previous_monitor_item = ""
 local current_monitor_item = ""
-local current_monitor_compare = "<"
+local current_monitor_compare = "<="
 local current_monitor_price = 0
 
 local clear_monitor_filters = function()
@@ -581,7 +622,6 @@ end
 
 local render_monitor_ui = function(windowSize)
     ImGui.Text("Monitor the Bazaar for items based on conditions")
-    ImGui.TextColored(1, 0, 0, 1, "WARNING: This feature is not yet implemented!")
     ImGui.Separator()
 
     local labelWidth = 80
@@ -623,7 +663,7 @@ local render_monitor_ui = function(windowSize)
             settings['Monitor'][previous_monitor_item] = nil
         end
 
-        save_settings(settings)
+        start_save_settings = true
         clear_monitor_filters()
     end
     ImGui.SameLine()
@@ -678,7 +718,9 @@ local render_monitor_ui = function(windowSize)
             if ImGui.SmallButton('Delete##'..name) then
                 Write.Debug('Monitor delete %s', name)
                 settings['Monitor'][name] = nil
-                save_settings(settings)
+
+                -- Signal to save the settings
+                start_save_settings = true
             end
         end
 
@@ -687,9 +729,38 @@ local render_monitor_ui = function(windowSize)
 end
 
 local render_monitor_results_ui = function()
-    ImGui.Text("Monitor the Bazaar for items based on conditions")
-    ImGui.TextColored(1, 0, 0, 1, "WARNING: This feature is not yet implemented!")
+    ImGui.Text("Monitor results as of %s", last_monitor_poll)
     ImGui.Separator()
+
+    -- Display the monitor results
+    if ImGui.BeginTable('MonitorResults', 4, ImGuiTableFlags.Borders) then
+        ImGui.TableSetupColumn('QueryID', ImGuiTableColumnFlags.WidthFixed, 120)
+        ImGui.TableSetupColumn('Item')
+        ImGui.TableSetupColumn('Price', ImGuiTableColumnFlags.WidthFixed, 65)
+        ImGui.TableSetupColumn('Seller', ImGuiTableColumnFlags.WidthFixed, 100)
+        ImGui.TableHeadersRow()
+
+        -- Iterate through the monitor results and display them ar rows in the table
+        for i, result in ipairs(monitor_results) do
+            ImGui.TableNextRow()
+            ImGui.TableNextColumn()
+            ImGui.Text(result.QueryID)
+            ImGui.TableNextColumn()
+            if ImGui.SmallButton(result.Item..'##'..i) then
+                Write.Debug('%s clicked', result.Item)
+                mq.cmdf('/link %s', result.Item)
+            end
+            ImGui.TableNextColumn()
+            ImGui.Text(result.Price)
+            ImGui.TableNextColumn()
+            if ImGui.SmallButton(result.Seller..'##'..i) then
+                Write.Debug('Navgating to to %s', result.Seller)
+                mq.cmdf('/target %s', result.Seller)
+                mq.cmd('/nav target')
+            end
+        end
+        ImGui.EndTable()
+    end
 
 end
 
@@ -720,7 +791,7 @@ local render_ui = function(open)
     if ImGui.Button(lockedIcon) then
         settings['General']['Window Locked'] = not settings['General']['Window Locked']
         ImGui.Locked = settings['General']['Window Locked']
-        save_settings(settings)
+        start_save_settings = true
     end
 
     ImGui.SameLine()
@@ -787,7 +858,7 @@ local bazmonitor = function(...)
                 settings[args[2]] = {}
             end
             settings[args[2]][args[3]] = args[4]
-            save_settings(settings)
+            start_save_settings = true
         end
     end
 
@@ -864,7 +935,7 @@ local bazmonitor = function(...)
             Write.Debug('Searching for %s', args[2])
             local query_id = util.random_string(16)
             settings['Queries'][query_id] = string.format("/name|%s", args[2])
-            save_settings(settings)
+            start_save_settings = true
             search_results(query_id)
         end
     end
@@ -892,12 +963,19 @@ if util.file_exists(config_file) then
     if not settings['General']['Window Locked'] then
         settings['General']['Window Locked'] = false
     end
+    if not settings['General'][monitor_server_poll_delay_key] then
+        settings['General'][monitor_server_poll_delay_key] = monitor_server_poll_delay_val
+    end
+    if not settings['General'][monitor_results_poll_delay_key] then
+        settings['General'][monitor_results_poll_delay_key] = monitor_results_poll_delay_val
+    end
     if not settings['Monitor'] then
         settings['Monitor'] = {}
     end
     if not settings['Queries'] then
         settings['Queries'] = {}
     end
+    save_settings(settings)
 else
     Write.Info('Config file does NOT exist: %s', config_file)
     Write.Info('Writing example config to %s', config_file)
@@ -917,16 +995,36 @@ ImGui.Register('rend_ui', function()
     open_gui = render_ui(open_gui)
 end)
 
+local say_hi = function()
+    Write.Info('Hello from BazMon!')
+end
+
+debug.sethook(coroutine.yield,"",10000);
+
+
 -- Loop and yield on every frame
 while open_gui do
     mq.doevents()
+
+    -- Save the settings to the config file
     if start_save_settings then
         start_save_settings = false
         save_settings(settings)
     end
+
+    -- Begin the search process
     if start_search then
         start_search = false
         load_search_results(current_query_id)
     end
+
+    if os.time() > next_monitor_poll then
+        local time = os.time()
+        Write.Debug('Polling for monitor results: %d', time)
+        next_monitor_poll = time + settings['General'][monitor_results_poll_delay_key]
+        load_monitor_results()
+    end
+
+    -- 
     mq.delay(1)
 end
