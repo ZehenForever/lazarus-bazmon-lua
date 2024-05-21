@@ -138,7 +138,7 @@ local load_monitor_results = function()
 
         -- Check if this is a new result since the last time we checked
         if monitor_results_previously_run and settings['General'][show_monitor_alerts_key] then
-            if not previous_results[monitor_result_line] then
+            if not previous_results[monitor_result_line] or result.Price  < previous_results[monitor_result_line]  then
                 local message = string.format('BazMon: New Monitor Result! %s', monitor_result_line)
                 mq.cmdf('/echo %s', message)
                 mq.cmdf('/popcustom 14 5 %s', message)
@@ -146,7 +146,7 @@ local load_monitor_results = function()
         end
         
         -- Add this result to the previous results table
-        previous_results[monitor_result_line] = true
+        previous_results[monitor_result_line] = result.Price
     end
 
     -- Set the last time the monitor results were polled
