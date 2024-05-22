@@ -1,20 +1,41 @@
 # lazarus-bazmon-lua
-A Bazaar search tool Lua script for the Lazarus EQ Emulator server
+A Bazaar search and price monitoring tool for the Lazarus EQ Emulator server.
 
 | Search | Monitor | Monitor Results|
 | ------ | ------- | -------------- |
 | ![Search](https://github.com/zehenforever/lazarus-bazmon-lua/blob/main/gui-search.png?raw=true) | ![Monitor](https://github.com/zehenforever/lazarus-bazmon-lua/blob/main/gui-monitor.png?raw=true) | ![Monitor Results](https://github.com/zehenforever/lazarus-bazmon-lua/blob/main/gui-monitor-results.png?raw=true) |
 
-## Motivation
+## Purpose and Motivation
+
+* **In-game Bazaar Search** - The in-game Bazaar UI does not work on Lazarus, but they host a nice [Magelo Bazaar Search](https://www.lazaruseq.com/Magelo/index.php?page=bazaar) web app. BazMon provides in-game searches for the Bazaar by querying the Magelo site in the background.
+
+    _I.e., we have reproduced the Magelo Bazaar search interface in game._
+
+* **In-game Bazaar Price Monitoring** - You can now automatically monitor the Bazaar for a custom set of items and prices, and be notified if any items show up in the Bazaar that meet your criteria.
+
+    _E.g., you can be notified if any "Fabled Earthshaker" appear in the Bazaar for less than 60,000pp._
+
 The EQ Bazaar interface does not work on Lazarus, so people use the hosted Magelo web site (https://www.lazaruseq.com/Magelo/index.php?page=bazaar) instead. That is a great tool and a fine option.
 
 This tool exists for enable searching the Bazaar from within the game.
 
-## How it works
-This is achieved by running two scripts:
+## Features
+* **Search** 
+  * Search for any item by name, including partial matches
+  * Search based on Class, Race, Slot, Stat, item Type, Aug type
+  * Set a minimum or maximum price
+  * Sort results by item name, Ascending or Descending
+* **Monitor**
+  * Configure a set of items to monitor by Item Name, a Comparison (i.e., "Less than or equal to" or "Greater than or equal to"), and a Price.
+* **Monitor Results**
+  * Receive in game notifications when new matching items are discovered in the Bazaar.
+  * View a list of items currently in the Bazaar that match your set of items being monitored. 
 
-1. **Front end (this repo)**: A normal Lua script that is run by MQ's `/lua run <script>` functionality.  It presents the UI and writes its data to a standard INI file just like any other plugin.  It reads query result data from a separate CSV file populated by the backend server.
-1. **Back end**: A standard Go program ([at this repo](https://github.com/ZehenForever/lazarus-bazmon-server)) that watches for changes in the INI file containing new search requests. It then constructs an HTTP search of the Lazarus Magelo Bazaar web site, parses the web page results, and writes them to the CSV file. This CSV file is watched by the frontend Lua script, and it displays any matching search results in the UI.
+## How it works
+We need to set up two scripts, one for the front end, and one for the back end:
+
+1. **Front end (this repo)**: A normal Lua script that is run by MQ's `/lua run <script>` functionality.  It presents the UI and writes its data to a standard INI file just like any other plugin.  It also reads query result data from two separate CSV files that are populated by the backend server.
+1. **Back end**: A standard Go program ([at this repo](https://github.com/ZehenForever/lazarus-bazmon-server)) that watches for changes in the INI file containing new search and monitor requests. It then constructs an HTTP search of the Lazarus Magelo Bazaar web site, parses the web page results, and writes them to the CSV file. This CSV file is watched by the frontend Lua script, and it displays any matching search results in the UI.
 
 > [!NOTE]
 > See the [Architecutre](#Architecture) section below to a visual diagram on how this works.
