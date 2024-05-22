@@ -638,7 +638,7 @@ local current_monitor_price = 0
 local clear_monitor_filters = function()
     previous_monitor_item = ""
     current_monitor_item = ""
-    current_monitor_compare = "Less than"
+    current_monitor_compare = "<="
     current_monitor_price = 0
 end
 
