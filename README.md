@@ -61,14 +61,27 @@ Run the Lua script in game:
 
 This will launch the UI which is pretty self explanatory.
 
-The basic flow is:
-1. When you click the "Search" button, it will record that query request into its `BazMon.ini` ini file.
-1. If the backend server is running, it will see this file change, will parse out the query from the .ini file, and run a query agains the Lazarus Magelo Bazaar page.
-1. The backend server will then parse those Bazaar search results and write them to the `BazResults.csv` file.
-1. The front end will poll that file until a configurable timeout (currently 5 seconds), and once there are matching results in the CSV, it will paint those in game in the UI as a table of search results.
 
 ### Set up the backend
 Setting up and using the the backend Go program can be found in [its repository](https://github.com/ZehenForever/lazarus-bazmon-server).
+
+## Basic Control Flow
+
+### Searching
+1. Be sure to click the "Search" tab at the top of the UI.
+1. Fill out your search criteria using various text/number inputs and various dropdowns.
+1. When you click the "Search" button, it will record that query request into its `BazMon.ini` ini file.
+1. If the backend server is running, it will see this file change, will parse out the query from the .ini file, and run a query agains the Lazarus Magelo Bazaar page.
+1. The backend server will then parse those Bazaar search results and write them to the `BazMon_SearchResults.csv` file.
+1. The front end will poll that file until a configurable timeout (currently 5 seconds), and once there are matching results in the CSV, it will paint those in game in the UI as a table of search results.
+
+### Monitoring
+1. Be sure to click the "Monitor" tab at the top of the UI to configure items to monitor.
+1. Choose an item Name, Price, and a Comparison ("Less than or equal to", "Greater than or equal to").
+1. When you click the "Save" button, it will write those entries to the `[Monitor]` section of the INI file.
+1. If the backend server is running, it will see this file change and will parse out the items to monitor and add that to its own internal list.
+1. The backend will periodically check the Bazaar for any matching entries and will write them to the `BazMon_MonitorResults.csv` file.
+1. The front end will poll this file to look for new changes and both display them in game and provide an in-game notification.
 
 ## Architecture
 
